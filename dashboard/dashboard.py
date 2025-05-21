@@ -18,6 +18,7 @@ from folium import CircleMarker
 from streamlit_folium import st_folium
 from branca.colormap import linear
 from bokeh.transform import dodge
+import pycountry
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Elasticsearch
@@ -27,7 +28,7 @@ INDEX   = "ufo_sightings"
 ES      = Elasticsearch([ES_HOST], verify_certs=False)
 
 FIELDS = [
-    "Occurred_utc", "location", "shape", "State", "Country",
+    "Occurred_utc", "location", "shape", "City", "State", "Country",
     "meteor_shower_codes", "days_from_shower_peak",
     "air_traffic_monthly", "light_pollution",
 ]
@@ -35,6 +36,27 @@ FIELDS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+def get_country_name(code: str) -> str:
+    if not code:
+        return code
+    country = pycountry.countries.get(alpha_2=code.upper())
+    return country.name if country else code
+
+
+def get_subdivision_name(state_code: str, country_code: str) -> str:
+    # Silently ignore invalid or missing inputs
+    if not state_code or not country_code:
+        return None  # or return "" if that's more appropriate in your context
+
+    iso_code = f"{country_code.upper()}-{state_code.upper()}"
+    subdivision = pycountry.subdivisions.get(code=iso_code)
+
+    if subdivision:
+        return subdivision.name
+
+    return None  # fallback if the code isn't valid
+    
+
 @st.cache_data(show_spinner=False)
 def read_index(_cache_buster: float) -> pd.DataFrame:
     """
@@ -50,6 +72,13 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
         scroll="3m",
     )
     df = pd.DataFrame(h["_source"] for h in hits)
+
+    # Apply state name (row-wise, needs both columns)
+    df["State"] = df.apply(lambda row: get_subdivision_name(row["State"], row["Country"]), axis=1)
+
+    # Apply country name (column-wise)
+    df["Country"] = df["Country"].apply(get_country_name)
+    
 
     # ── normalise list / dict columns ────────────────────────────────────────
     df["meteor_shower_codes"] = df["meteor_shower_codes"].apply(
@@ -139,21 +168,72 @@ min_date = pd.Timestamp("2006-01-01").date()
 max_date = df_all["ts"].dt.date.max()
 
 with st.sidebar:
-    dr    = st.date_input("Date range", (min_date, max_date))
+    dr = st.date_input("Date range", (min_date, max_date))
+
     shape = st.selectbox(
-        "Shape", ["All"] + sorted(df_all["shape"].dropna().unique()))
-    state = st.selectbox(
-        "State", ["All"] + sorted(df_all["State"].dropna().unique()))
+    "Shape",
+    ["All"] + sorted([s.capitalize() for s in df_all["shape"].dropna().unique()]))
+
+    # Country filter
+    all_countries = sorted(df_all["Country"].dropna().unique())
+    country = st.selectbox("Country", ["All"] + all_countries)
+
+    # Filtered states based on selected country
+    if country != "All":
+        filtered_states = sorted(df_all[df_all["Country"] == country]["State"].dropna().unique())
+    else:
+        filtered_states = sorted(df_all["State"].dropna().unique())
+
+    state = st.selectbox("State/Province", ["All"] + filtered_states)
+
+    if "City" in df_all.columns:
+        filtered_cities = sorted(df_all["City"].dropna().unique())
+    else:
+        st.error("Column 'City' is missing in the data.")
+        st.write("Columns available:", df_all.columns.tolist())
+        filtered_cities = []
+
+     # Filtered cities based on selected state/country
+    if state != "All":
+        filtered_cities = sorted(df_all[
+            (df_all["Country"] == country) &
+            (df_all["State"] == state)
+        ]["City"].dropna().unique())
+    elif country != "All":
+        filtered_cities = sorted(df_all[
+            df_all["Country"] == country
+        ]["City"].dropna().unique())
+    else:
+        filtered_cities = sorted(df_all["City"].dropna().unique())
+
+    filtered_cities = [city.title() for city in filtered_cities]
+
+    city = st.selectbox("City", ["All"] + filtered_cities)
+
     n_map = st.slider("Points on map", 100, 5_000, 500, 100)
 
-mask = (
-    (df_all.ts >= pd.to_datetime(f"{dr[0]}T00:00:00")) &
-    (df_all.ts <= pd.to_datetime(f"{dr[1]}T23:59:59"))
-)
-if shape != "All": mask &= df_all["shape"] == shape
-if state != "All": mask &= df_all["State"] == state
 
-df = add_flags(df_all[mask]).copy()
+    mask = (
+        (df_all.ts >= pd.to_datetime(f"{dr[0]}T00:00:00")) &
+        (df_all.ts <= pd.to_datetime(f"{dr[1]}T23:59:59"))
+    )
+    if shape != "All":
+        mask &= df_all["shape"] == shape.lower()
+    if country != "All":
+        mask &= df_all["Country"] == country
+    if state != "All":
+        mask &= df_all["State"] == state
+    if city != "All":
+        mask &= df_all["City"] == city.lower()
+
+
+
+try:
+    df = add_flags(df_all[mask]).copy()
+except Exception as e:
+    print(f"add_flags failed: {e} — falling back to unflagged data")
+    df = df_all[mask].copy()
+
 st.sidebar.markdown(f"**{len(df)} sightings** matched.")
 
 # One common random-sample for both maps (latest first)
@@ -215,17 +295,18 @@ with tab1:
     for _, r in df_sample.iterrows():
         lat, lon = r["location"]["lat"], r["location"]["lon"]
 
-        if r["meteor_flag"]:
+        if bool(r.get("meteor_flag", False)):
             folium.CircleMarker(
                 [lat, lon], radius=5, color="orange",
                 fill=True, fill_opacity=.7
             ).add_to(layer_meteor)
 
-        elif r["unknown_flag"]:
+        elif bool(r.get("unknown_flag", False)):
             folium.CircleMarker(
                 [lat, lon], radius=5, color="violet",
                 fill=True, fill_opacity=.7
             ).add_to(layer_unknown)
+
 
     layer_meteor.add_to(fmap1)
     layer_unknown.add_to(fmap1)
