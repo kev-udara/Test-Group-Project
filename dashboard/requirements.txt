@@ -1,0 +1,7 @@
+streamlit==1.24.1
+pandas==2.0.3
+elasticsearch==8.9.0
+bokeh==2.4.3
+folium==0.16.0
+streamlit-folium==0.12.0
+scipy

@@ -1,0 +1,14 @@
+pandas
+pytz
+geopy
+elasticsearch>=8.9.0,<9.0.0
+requests
+kaggle
+icalendar
+rasterio
+streamlit       # for local testing of enrichment UIs if desired
+pystac-client
+Pillow
+beautifulsoup4 
+meteostat
+scipy

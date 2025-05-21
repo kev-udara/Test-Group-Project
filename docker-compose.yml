@@ -1,0 +1,53 @@
+version: '3.7'
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - '9200:9200'
+    healthcheck:
+      test: ["CMD-SHELL","curl -s http://localhost:9200/ || exit 1"]
+      interval: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.0
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_HOST=0.0.0.0
+    ports:
+      - '5601:5601'
+
+  ingest:
+    build: ./ingest
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - elasticsearch
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - NOAA_TOKEN=${NOAA_TOKEN}             
+      - OPENSKY_USER=${OPENSKY_USER}         
+      - OPENSKY_PASS=${OPENSKY_PASS}
+      - KAGGLE_USERNAME=${KAGGLE_USERNAME}
+      - KAGGLE_KEY=${KAGGLE_KEY}
+      - PYTHONUNBUFFERED=1
+      - WEATHERBIT_KEY=${WEATHERBIT_KEY}
+    command: >
+      bash -c "
+        python ufo_ingest.py &&
+        python meteor_enrich.py &&
+        python light_pollution_enrich.py &&
+        python flight_enrich.py &&
+        python check_enrich.py
+      "
+
+  dashboard:
+    build: ./dashboard
+    ports:
+      - '8000:8000'
+    depends_on:
+      - elasticsearch
