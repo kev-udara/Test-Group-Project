@@ -269,7 +269,7 @@ tab_options = [
     "Explanation Likelihood"
 ]
 
-selected_tab = st.selectbox("", tab_options, key="tab_selector")
+selected_tab = st.selectbox("Tab Selector", tab_options, key="tab_selector", label_visibility="collapsed")
 
 # Helper: assign tab index to highlight which logic to run
 tab_index = tab_options.index(selected_tab)
