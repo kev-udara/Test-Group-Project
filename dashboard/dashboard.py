@@ -19,7 +19,11 @@ from streamlit_folium import st_folium
 from branca.colormap import linear
 from bokeh.transform import dodge
 import pycountry
+<<<<<<< HEAD
 
+=======
+import matplotlib.pyplot as plt 
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
 # ─────────────────────────────────────────────────────────────────────────────
 # Elasticsearch
 # ─────────────────────────────────────────────────────────────────────────────
@@ -85,6 +89,7 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
         lambda x: x if isinstance(x, list) else [])
     df["days_from_shower_peak"] = df["days_from_shower_peak"].apply(
         lambda x: x if isinstance(x, list) else [])
+<<<<<<< HEAD
     df["air_traffic_monthly"] = df["air_traffic_monthly"].apply(
         lambda x: x if isinstance(x, dict) else {})
     
@@ -92,6 +97,25 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
     df["light_pollution"] = df["light_pollution"].apply(
         lambda d: float(d.get("brightness", np.nan)) if isinstance(d, dict) else np.nan
     )
+=======
+
+    if "air_traffic_monthly" in df.columns:
+        df["air_traffic_monthly"] = df["air_traffic_monthly"].apply(
+            lambda x: x if isinstance(x, dict) else {}
+        )
+    else:
+        df["air_traffic_monthly"] = [{} for _ in range(len(df))]
+
+    
+    # ── flatten light_pollution → brightness ────────────────────────────────
+    if "light_pollution" in df.columns:
+        df["light_pollution"] = df["light_pollution"].apply(
+            lambda d: float(d.get("brightness", np.nan)) if isinstance(d, dict) else np.nan
+        )
+    else:
+        df["light_pollution"] = np.nan
+
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
 
     # ── timestamps & conveniences ────────────────────────────────────────────
     df["ts"]        = (pd.to_datetime(df["Occurred_utc"], errors="coerce", utc=True)
@@ -233,6 +257,13 @@ try:
 except Exception as e:
     print(f"add_flags failed: {e} — falling back to unflagged data")
     df = df_all[mask].copy()
+<<<<<<< HEAD
+=======
+    df["flight_flag"] = False
+    df["meteor_flag"] = False
+    df["unknown_flag"] = True
+
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
 
 st.sidebar.markdown(f"**{len(df)} sightings** matched.")
 
@@ -242,11 +273,21 @@ df_sample = df.sort_values("ts", ascending=False).head(n_map)
 # ─────────────────────────────────────────────────────────────────────────────
 # Tabs
 # ─────────────────────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 tab1, tab2, tab3, tab4 = st.tabs([
+=======
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
     "Meteor-Shower Activity",
     "Air-Traffic Correlation",
     "Traffic × Sightings",
     "Light-Pollution Analysis",
+<<<<<<< HEAD
+=======
+    "Country-wise Sightings",
+    "Shape Distribution",
+    "Explanation Likelihood"
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
 ])
 
 # ════════════════════ Tab 1 – Meteor Showers ═════════════════════════════════
@@ -506,4 +547,45 @@ with st.expander("ℹ️ About & Data Sources"):
 * **Meteor showers**: IAU Meteor Data Center  
 * **Air-traffic**: SFO passenger totals (SF Open Data)  
 * Built with **Streamlit**, **Bokeh**, **Folium** & **Elasticsearch**.
+<<<<<<< HEAD
 """)
+=======
+""")
+    
+
+
+
+# ════════════════════ Tab 5 – Country-wise Sightings ═════════════════════════
+with tab5:
+    st.subheader("Top Countries with Most UFO Sightings")
+    df_countries = df.dropna(subset=['Country'])
+    top_countries = df_countries['Country'].value_counts().head(10)
+    st.bar_chart(top_countries)
+
+# ════════════════════ Tab 6 – Shape Distribution ═════════════════════════════
+with tab6:
+    st.subheader("Distribution of UFO Shapes")
+    df_shapes = df.dropna(subset=['shape'])
+    shape_counts = df_shapes['shape'].value_counts().head(7)
+
+    fig, ax = plt.subplots()
+    ax.pie(shape_counts, labels=shape_counts.index, autopct='%1.1f%%', startangle=90)
+    ax.axis('equal')
+    st.pyplot(fig)
+
+# ════════════════════ Tab 7 – Explanation Likelihood ═════════════════════════
+with tab7:
+    st.subheader("Meteor-Likely vs Unexplained Sightings")
+
+    df['meteor_likely'] = df['meteor_shower_codes'].apply(
+        lambda x: len(x) > 0 if isinstance(x, list) else False
+    )
+
+    explanation_counts = df['meteor_likely'].value_counts()
+    explanation_counts.index = explanation_counts.index.map({
+        True: "Meteor-Likely",
+        False: "Unexplained"
+    })
+
+    st.bar_chart(explanation_counts)
+>>>>>>> 5662da2 (Added Pie Chart and Graph)
