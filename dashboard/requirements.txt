@@ -6,7 +6,5 @@ folium==0.16.0
 streamlit-folium==0.12.0
 scipy
 pycountry
-<<<<<<< HEAD
-=======
 matplotlib
->>>>>>> 5662da2 (Added Pie Chart and Graph)
+branca

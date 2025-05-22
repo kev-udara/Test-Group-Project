@@ -11,9 +11,5 @@ pystac-client
 Pillow
 beautifulsoup4 
 meteostat
-<<<<<<< HEAD
-scipy
-=======
 scipy
 matplotlib
->>>>>>> 5662da2 (Added Pie Chart and Graph)

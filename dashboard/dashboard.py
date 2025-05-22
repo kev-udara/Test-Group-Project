@@ -19,11 +19,9 @@ from streamlit_folium import st_folium
 from branca.colormap import linear
 from bokeh.transform import dodge
 import pycountry
-<<<<<<< HEAD
-
-=======
 import matplotlib.pyplot as plt 
->>>>>>> 5662da2 (Added Pie Chart and Graph)
+import random
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Elasticsearch
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,15 +87,6 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
         lambda x: x if isinstance(x, list) else [])
     df["days_from_shower_peak"] = df["days_from_shower_peak"].apply(
         lambda x: x if isinstance(x, list) else [])
-<<<<<<< HEAD
-    df["air_traffic_monthly"] = df["air_traffic_monthly"].apply(
-        lambda x: x if isinstance(x, dict) else {})
-    
-    # ── flatten light_pollution → brightness ────────────────────────────────
-    df["light_pollution"] = df["light_pollution"].apply(
-        lambda d: float(d.get("brightness", np.nan)) if isinstance(d, dict) else np.nan
-    )
-=======
 
     if "air_traffic_monthly" in df.columns:
         df["air_traffic_monthly"] = df["air_traffic_monthly"].apply(
@@ -115,7 +104,6 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
     else:
         df["light_pollution"] = np.nan
 
->>>>>>> 5662da2 (Added Pie Chart and Graph)
 
     # ── timestamps & conveniences ────────────────────────────────────────────
     df["ts"]        = (pd.to_datetime(df["Occurred_utc"], errors="coerce", utc=True)
@@ -257,13 +245,10 @@ try:
 except Exception as e:
     print(f"add_flags failed: {e} — falling back to unflagged data")
     df = df_all[mask].copy()
-<<<<<<< HEAD
-=======
     df["flight_flag"] = False
     df["meteor_flag"] = False
     df["unknown_flag"] = True
 
->>>>>>> 5662da2 (Added Pie Chart and Graph)
 
 st.sidebar.markdown(f"**{len(df)} sightings** matched.")
 
@@ -273,25 +258,24 @@ df_sample = df.sort_values("ts", ascending=False).head(n_map)
 # ─────────────────────────────────────────────────────────────────────────────
 # Tabs
 # ─────────────────────────────────────────────────────────────────────────────
-<<<<<<< HEAD
-tab1, tab2, tab3, tab4 = st.tabs([
-=======
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
->>>>>>> 5662da2 (Added Pie Chart and Graph)
+# Detect current tab selection
+tab_options = [
     "Meteor-Shower Activity",
     "Air-Traffic Correlation",
     "Traffic × Sightings",
     "Light-Pollution Analysis",
-<<<<<<< HEAD
-=======
     "Country-wise Sightings",
     "Shape Distribution",
     "Explanation Likelihood"
->>>>>>> 5662da2 (Added Pie Chart and Graph)
-])
+]
+
+selected_tab = st.selectbox("", tab_options, key="tab_selector")
+
+# Helper: assign tab index to highlight which logic to run
+tab_index = tab_options.index(selected_tab)
 
 # ════════════════════ Tab 1 – Meteor Showers ═════════════════════════════════
-with tab1:
+if tab_index == 0:
     st.subheader("Monthly UFO Counts vs. Average # Meteor Showers")
     ts1 = (df.groupby("month")
              .agg(sightings=("ts","count"), avg_showers=("n_showers","mean"))
@@ -325,13 +309,15 @@ with tab1:
         st.bokeh_chart(p)
 
     # ── MAP (meteor vs unexplained) ─────────────────────────────────────────
-    st.markdown("**Meteor-likely (orange) vs Unexplained (violet)**")
+    st.markdown("### **Meteor-likely** <span style='color:orange;'>●</span> vs **Unexplained** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
+
 
     fmap1 = folium.Map(location=[20,0], zoom_start=2,
                        tiles="CartoDB dark_matter", control_scale=True)
 
-    layer_meteor  = folium.FeatureGroup(name="Meteor-likely",  show=True)
-    layer_unknown = folium.FeatureGroup(name="Unexplained",    show=True)
+    layer_meteor  = folium.FeatureGroup(name="<span style='color:orange;'><b>Meteor-likely</b></span>", show=True)
+    layer_unknown = folium.FeatureGroup(name="<span style='color:violet;'><b>Unexplained</b></span>", show=True)
+
 
     for _, r in df_sample.iterrows():
         lat, lon = r["location"]["lat"], r["location"]["lon"]
@@ -355,7 +341,7 @@ with tab1:
     st_folium(fmap1, width=900, height=500)
 
 # ════════════════════ Tab 2 – Air Traffic ════════════════════════════════════
-with tab2:
+if tab_index == 1:
     st.subheader("Monthly UFO Counts vs. Average Monthly Air Traffic")
 
     ts2 = (df.groupby("month")
@@ -392,13 +378,13 @@ with tab2:
         st.bokeh_chart(q)
 
     # ── MAP (flight vs unexplained) ────────────────────────────────────────
-    st.markdown("**Flight-likely (blue) vs Unexplained (violet)**")
+    st.markdown("### **Flight-likely** <span style='color:blue;'>●</span> vs **Unexplained** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
 
     fmap2 = folium.Map(location=[20,0], zoom_start=2,
                        tiles="CartoDB dark_matter", control_scale=True)
 
-    layer_flight   = folium.FeatureGroup(name="Flight-likely", show=True)
-    layer_unknown2 = folium.FeatureGroup(name="Unexplained",   show=True)
+    layer_flight   = folium.FeatureGroup(name="<span style='color:blue;'><b>Flight-likely</b></span>", show=True)
+    layer_unknown2 = folium.FeatureGroup(name="<span style='color:violet;'><b>Unexplained</b></span>", show=True)
 
     for _, r in df_sample.iterrows():
         lat, lon = r["location"]["lat"], r["location"]["lon"]
@@ -424,7 +410,7 @@ with tab2:
     st_folium(fmap2, width=900, height=500)
 
 # ════════════════════ Tab 3 – Scatter ════════════════════════════════════════
-with tab3:
+if tab_index == 2:
     st.subheader("Is Monthly Air-Traffic Linked to UFO Sightings?")
 
     corr = (df.groupby("month")
@@ -461,7 +447,7 @@ with tab3:
         scat.yaxis.formatter = NumeralTickFormatter(format="0")
         st.bokeh_chart(scat)
 # ════════════════════ Tab 4 – Light-Pollution Analysis ═════════════════════════════════
-with tab4:
+if tab_index == 3:
     st.subheader("Distribution of Light-Pollution by Sighting Type")
 
     # — 1) grab the three groups, filter out invalids
@@ -547,23 +533,20 @@ with st.expander("ℹ️ About & Data Sources"):
 * **Meteor showers**: IAU Meteor Data Center  
 * **Air-traffic**: SFO passenger totals (SF Open Data)  
 * Built with **Streamlit**, **Bokeh**, **Folium** & **Elasticsearch**.
-<<<<<<< HEAD
-""")
-=======
 """)
     
 
 
 
 # ════════════════════ Tab 5 – Country-wise Sightings ═════════════════════════
-with tab5:
+if tab_index == 4:
     st.subheader("Top Countries with Most UFO Sightings")
     df_countries = df.dropna(subset=['Country'])
     top_countries = df_countries['Country'].value_counts().head(10)
     st.bar_chart(top_countries)
 
 # ════════════════════ Tab 6 – Shape Distribution ═════════════════════════════
-with tab6:
+if tab_index == 5:
     st.subheader("Distribution of UFO Shapes")
     df_shapes = df.dropna(subset=['shape'])
     shape_counts = df_shapes['shape'].value_counts().head(7)
@@ -574,7 +557,7 @@ with tab6:
     st.pyplot(fig)
 
 # ════════════════════ Tab 7 – Explanation Likelihood ═════════════════════════
-with tab7:
+if tab_index == 6:
     st.subheader("Meteor-Likely vs Unexplained Sightings")
 
     df['meteor_likely'] = df['meteor_shower_codes'].apply(
@@ -588,4 +571,3 @@ with tab7:
     })
 
     st.bar_chart(explanation_counts)
->>>>>>> 5662da2 (Added Pie Chart and Graph)
