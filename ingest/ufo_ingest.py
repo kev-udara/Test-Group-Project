@@ -50,16 +50,72 @@ n_bad = df["Occurred_utc"].isna().sum()
 print(f"📅 {len(df)} total, {n_bad} unparsed dates → dropping those")
 
 # 5️⃣ Split & clean location into City/State/Country
+# ──────────────────────────────────────────────────────────────────────
+import html, re
+
+# ── helper regexes ----------------------------------------------------
+_PLACEHOLDER_RE = re.compile(
+    r"""
+        ^\?+$                              |  # “?”, “??”, “???” …
+        (unspecified|unknown|deleted|hoax) |  # text that means “no city”
+        (observed\s+from\s+airplane)       |
+        (city\s+not\s+specified)           |
+        (location\s+unspecified)           |
+        (name\s+of\s+town\s+deleted)       |
+        (town\s+name\s+temporarily\s+deleted)
+    """,
+    flags=re.I | re.X,
+)
+_COORD_RE = re.compile(r"\d+\s*degrees?", flags=re.I)   #  “22Degrees01 …”
+
+def _normalise_city(raw: str | None) -> str | None:
+    """
+    Fix messy ‘city’ strings coming from NUFORC / Kaggle.
+
+    • HTML-decodes entities (&Ccedil; → Ç, &#44; → , …)  
+    • Discards placeholders like “??”, “Unknown”, “((Unspecified))”, etc.  
+    • Discards strings that look like lon/lat coordinates.  
+    • Removes anything inside *either* “((…))” or ordinary “(…)” brackets.  
+    • Collapses runs of whitespace.  
+    • Returns the cleaned value in **lower-case** (or ``None``).
+    """
+    if not raw or not str(raw).strip():
+        return None
+
+    txt = html.unescape(str(raw)).strip()
+
+    # chuck obvious rubbish
+    if _PLACEHOLDER_RE.search(txt) or _COORD_RE.search(txt):
+        return None
+
+    # kill double-parenthesised placeholders and bracket qualifiers
+    txt = re.sub(r"\(\(.*?\)\)", " ", txt)   # ((…))
+    txt = re.sub(r"\s*\(.*?\)",   " ", txt)  # (…)
+    txt = re.sub(r"\s{2,}", " ", txt).strip()
+
+    return txt.lower() or None
+
+
+# Build a single “Location” column first
 df["Location"] = (
-    df.get("city",pd.Series(dtype=str)).fillna("") + ", " +
-    df.get("state",pd.Series(dtype=str)).fillna("") + ", " +
-    df.get("country",pd.Series(dtype=str)).fillna("")
+    df.get("city",    pd.Series(dtype=str)).fillna("") + ", " +
+    df.get("state",   pd.Series(dtype=str)).fillna("") + ", " +
+    df.get("country", pd.Series(dtype=str)).fillna("")
 ).str.strip(", ")
-def split_loc(s):
+
+def split_loc(s: str) -> pd.Series:
     parts = [p.strip() for p in s.split(",")]
-    parts += [None]*(3-len(parts))
-    return pd.Series(parts[:3], index=["City","State","Country"])
-df[["City","State","Country"]] = df["Location"].apply(split_loc)
+    parts += [None] * (3 - len(parts))
+    return pd.Series(parts[:3], index=["City", "State", "Country"])
+
+df[["City", "State", "Country"]] = df["Location"].apply(split_loc)
+
+# 👉 final cleanup of the City field
+df["City"] = (
+    df["City"]
+      .apply(_normalise_city)          # clean
+      .replace({None: pd.NA})          # make pandas treat it as missing
+)
 
 # 6️⃣ Pull lat/lon from Kaggle CSV
 df["lat"] = pd.to_numeric(df.get("latitude"),   errors="coerce") \
