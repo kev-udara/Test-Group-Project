@@ -185,6 +185,20 @@ max_date = df_all["ts"].dt.date.max()
 with st.sidebar:
     dr = st.date_input("Date range", (min_date, max_date))
 
+    # ── robust date‑range handling ───────────────────────────────────────
+    # If the user supplies an incomplete or out‑of‑range selection we keep the
+    # previous full range (min_date → max_date) so the app never errors out.
+    try:
+        start_date, end_date = dr
+    except Exception:
+        start_date, end_date = min_date, max_date
+
+    # Clamp to data extent to avoid "out of range" issues
+    if start_date is None or start_date < min_date or start_date > max_date:
+        start_date = min_date
+    if end_date is None or end_date < min_date or end_date > max_date:
+        end_date = max_date
+
     shape = st.selectbox(
     "Shape",
     ["All"] + sorted([s.capitalize() for s in df_all["shape"].dropna().unique()]))
@@ -229,8 +243,8 @@ with st.sidebar:
 
 
     mask = (
-        (df_all.ts >= pd.to_datetime(f"{dr[0]}T00:00:00")) &
-        (df_all.ts <= pd.to_datetime(f"{dr[1]}T23:59:59"))
+        (df_all.ts >= pd.to_datetime(f"{start_date}T00:00:00")) &
+        (df_all.ts <= pd.to_datetime(f"{end_date}T23:59:59"))
     )
     if shape != "All":
         mask &= df_all["shape"] == shape.lower()
@@ -276,7 +290,7 @@ tab_index = tab_options.index(selected_tab)
 
 # ════════════════════ Tab 1 – Meteor Showers ═════════════════════════════════
 if tab_index == 0:
-    st.subheader("Monthly UFO Counts vs. Average # Meteor Showers")
+    st.subheader("📈 Monthly UFO Sightings vs. Average Meteor Showers")
     ts1 = (df.groupby("month")
              .agg(sightings=("ts","count"), avg_showers=("n_showers","mean"))
              .reset_index())
@@ -307,6 +321,13 @@ if tab_index == 0:
         p.legend.location    = "top_left"
         p.add_tools(bokeh_hover())
         st.bokeh_chart(p)
+
+        # 📄 explanation directly under the chart
+        st.markdown(
+            "Compares the **number of UFO sightings per month** with the **average number of meteor showers** "
+            "during the same period. This dual-axis line chart helps identify whether spikes in sightings "
+            "coincide with increased meteor activity."
+        )
 
         # Create lagged versions of meteor shower data
         ts1["avg_showers_lag1"] = ts1["avg_showers"].shift(1)
@@ -344,12 +365,16 @@ if tab_index == 0:
         p.legend.location = "top_left"
         p.add_tools(bokeh_hover())
 
-        st.subheader("UFO Sightings vs. Lagged Meteor Shower Activity")
+        st.subheader("⏳ Lagged Meteor Shower Correlation")
 
         st.bokeh_chart(p)
 
+        st.markdown(
+            "Explores if there's a **delayed effect** where UFO sightings increase **1–2 months after** periods of high meteor activity. This can suggest residual atmospheric or observational phenomena related to prior showers."
+        )
+
     # ── MAP (meteor vs unexplained) ─────────────────────────────────────────
-    st.markdown("### **Meteor-likely** <span style='color:orange;'>●</span> vs **Unexplained** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
+    st.markdown("### 🗺️ Map: **Meteor-likely** <span style='color:orange;'>●</span> vs **Unexplained** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
 
 
     fmap1 = folium.Map(location=[20,0], zoom_start=2,
@@ -380,6 +405,16 @@ if tab_index == 0:
     folium.LayerControl(collapsed=False).add_to(fmap1)
     st_folium(fmap1, width=900, height=500)
 
+    st.markdown(
+        """
+    Shows the **geographic distribution** of recent sightings classified as:
+    - **Meteor-likely** (orange) – strong correlation with meteor showers
+    - **Unexplained** (violet) – not easily attributed to natural phenomena  
+    This map helps spot regional patterns and clusters.
+    """
+    )
+
+    st.subheader("📊 Bar Chart: Count of Meteor-Likely vs. Unexplained Sightings")
 
     # Count occurrences
     counts = {
@@ -400,10 +435,13 @@ if tab_index == 0:
     ).properties(
         width=400,
         height=300,
-        title="Count of Meteor-Likely vs. Unexplained Sightings"
     )
 
     st.altair_chart(bar_chart, use_container_width=True)
+
+    st.markdown(
+        "A simple comparison of the total number of **likely meteor-related sightings** vs. **unexplained sightings** in the current dataset."
+    )
     
     df["month"] = pd.to_datetime(df["ts"]).dt.to_period("M").dt.to_timestamp()
 
@@ -446,34 +484,16 @@ if tab_index == 0:
     p.yaxis[1].formatter = NumeralTickFormatter(format="0.0")
     p.legend.location = "top_left"
 
-    st.subheader("Correlation of Meteor Showers with Meteor-Likely vs Unexplained Sightings")
+    st.subheader("📉 Time Series: Correlation of Average Meteor Showers with Meteor-Likely vs Unexplained Sightings")
     # Display in Streamlit
     st.bokeh_chart(p)
-
-    st.markdown("## Summary of Insights & Visualizations")
-    st.markdown("""
-    ### 📈 Monthly UFO Sightings vs. Meteor Showers
-    Compares the **number of UFO sightings per month** with the **average number of meteor showers** during the same period. This dual-axis line chart helps identify whether spikes in sightings coincide with increased meteor activity.
-
-    ### ⏳ Lagged Meteor Shower Correlation
-    Explores if there's a **delayed effect** where UFO sightings increase **1–2 months after** periods of high meteor activity. This can suggest residual atmospheric or observational phenomena related to prior showers.
-
-    ### 🗺️ Map: Meteor-Likely vs. Unexplained Sightings
-    Shows the **geographic distribution** of recent sightings classified as:
-    - **Meteor-likely** (orange) – strong correlation with meteor showers
-    - **Unexplained** (violet) – not easily attributed to natural phenomena  
-    This map helps spot regional patterns and clusters.
-
-    ### 📊 Bar Chart: Count of Meteor-Likely vs. Unexplained Sightings
-    A simple comparison of the total number of **likely meteor-related sightings** vs. **unexplained sightings** in the current dataset.
-
-    ### 📉 Time Series: Meteor-Likely vs. Unexplained vs. Showers
-    Compares how **Meteor-likely and Unexplained sightings trend over time** alongside average monthly meteor showers. Helps evaluate whether unexplained sightings follow similar seasonal or environmental patterns.
-    """)
+    st.markdown(
+            "Compares how **Meteor-likely and Unexplained sightings trend over time** alongside average monthly meteor showers. Helps evaluate whether unexplained sightings follow similar seasonal or environmental patterns."
+        )
 
 # ════════════════════ Tab 2 – Air Traffic ════════════════════════════════════
 if tab_index == 1:
-    st.subheader("Monthly UFO Counts vs. Average Monthly Air Traffic")
+    st.subheader("📈 Monthly UFO Counts vs. Average Monthly Air Traffic")
 
     df["month"] = pd.to_datetime(df["ts"]).dt.to_period("M").dt.to_timestamp()
 
@@ -562,11 +582,19 @@ if tab_index == 1:
         q.legend.location = "top_left"
         q.add_tools(bokeh_hover())
 
-        st.subheader("UFO Sightings vs. Lagged Air Traffic")
+        st.markdown(
+        "Compares the **number of UFO sightings per month** with the **average monthly air traffic** (total flights). This dual-axis line chart helps identify potential correlation between airspace activity and sighting reports."
+    )
+
+        st.subheader("⏳ Lagged Air Traffic Correlation")
         st.bokeh_chart(q)
 
+    st.markdown(
+        "Introduces a **1–2 month lag** on air traffic data to explore if UFO sightings increase **after previous spikes** in flight volume. Useful for detecting delayed effects or reporting latency."
+    )
+
     # ── MAP (flight vs unexplained) ────────────────────────────────────────
-    st.markdown("### **Flight-likely** <span style='color:blue;'>●</span> vs **Unexplained** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
+    st.markdown("### 🗺️ Map: **Flight-likely** <span style='color:blue;'>●</span> vs **Unexplained Sightings** <span style='color:violet;'>●</span>", unsafe_allow_html=True)
 
     fmap2 = folium.Map(location=[20, 0], zoom_start=2,
                        tiles="CartoDB dark_matter", control_scale=True)
@@ -593,6 +621,15 @@ if tab_index == 1:
     layer_unknown2.add_to(fmap2)
     folium.LayerControl(collapsed=False).add_to(fmap2)
     st_folium(fmap2, width=900, height=500)
+    st.markdown("""
+    Visualizes the **geographic distribution** of sightings categorized as:
+    - **Flight-likely** (blue) – plausibly caused by known air traffic
+    - **Unexplained** (violet) – with no clear link to flight paths  
+    Helps identify hotspots or areas with consistent unexplained activity.
+    """
+    )
+
+    st.subheader("📊 Bar Chart: Count of Flight-Likely vs. Unexplained Sightings")
 
     # ── Count Bar Chart (Flight vs Unexplained) ─────────────────────────────
     counts2 = {
@@ -610,11 +647,14 @@ if tab_index == 1:
         tooltip=["Type", "Count"]
     ).properties(
         width=400,
-        height=300,
-        title="Count of Flight-Likely vs. Unexplained Sightings"
+        height=300
     )
 
     st.altair_chart(bar_chart2, use_container_width=True)
+
+    st.markdown(
+        "A clear side-by-side comparison of **explained vs. unexplained sightings**. Shows how much of the dataset aligns with plausible air traffic sources."
+    )
 
         # ── Correlation Plot: Flight-Likely & Unexplained vs Scaled Air Traffic ─
     df["month"] = pd.to_datetime(df["ts"]).dt.to_period("M").dt.to_timestamp()
@@ -657,36 +697,17 @@ if tab_index == 1:
     p.yaxis[1].formatter = NumeralTickFormatter(format="0.0")
     p.legend.location = "top_left"
 
-    st.subheader("Sightings Over Time with Avg Air Traffic")
+    st.subheader("📉 Time Series: Sightings Over Time with Avg Air Traffic")
     st.bokeh_chart(p)
 
-    st.markdown("## Summary of Insights & Visualizations")
-    st.markdown("""
-    ### 📈 Monthly UFO Sightings vs. Air Traffic
-    Compares the **number of UFO sightings per month** with the **average monthly air traffic** (total flights). This dual-axis line chart helps identify potential correlation between airspace activity and sighting reports.
-
-    ### ⏳ Lagged Air Traffic Correlation
-    Introduces a **1–2 month lag** on air traffic data to explore if UFO sightings increase **after previous spikes** in flight volume. Useful for detecting delayed effects or reporting latency.
-
-    ### 🗺️ Map: Flight-Likely vs. Unexplained Sightings
-    Visualizes the **geographic distribution** of sightings categorized as:
-    - **Flight-likely** (blue) – plausibly caused by known air traffic
-    - **Unexplained** (violet) – with no clear link to flight paths  
-    Helps identify hotspots or areas with consistent unexplained activity.
-
-    ### 📊 Bar Chart: Count of Flight-Likely vs. Unexplained Sightings
-    A clear side-by-side comparison of **explained vs. unexplained sightings**. Shows how much of the dataset aligns with plausible air traffic sources.
-
-    ### 📉 Time Series: Flight-Likely vs. Unexplained vs. Scaled Air Traffic
-    Compares **Flight-likely and Unexplained sightings over time**, plotted alongside **scaled air traffic** to evaluate overlapping trends and assess if unexplained reports follow flight density patterns.
-    """)
-
-    
+    st.markdown(
+        "Compares **Flight-likely and Unexplained sightings over time**, plotted alongside **scaled air traffic** to evaluate overlapping trends and assess if unexplained reports follow flight density patterns."
+    )
 
     
 # ════════════════════ Tab 3– Light-Pollution Analysis ═════════════════════════════════
 if tab_index == 2:
-    st.subheader("Distribution of Light-Pollution by Sighting Type")
+    st.subheader("🌃 Distribution of Light-Pollution by Sighting Type")
 
     # — 1) grab the three groups, filter out invalids
     groups = {
@@ -737,7 +758,16 @@ if tab_index == 2:
         p4.legend.click_policy = "hide"
         st.bokeh_chart(p4)
 
-    st.subheader("Map of Recent Sightings Colored by Light-Pollution")
+        st.markdown("""
+    Compares the **light pollution levels** (measured as VIIRS radiance) across three sighting categories:
+    - Meteor-likely (orange)
+    - Flight-likely (blue)
+    - Unexplained (gray)  
+    Histograms reveal whether sightings are more common in dark-sky or light-polluted areas.
+    """
+    )
+
+    st.subheader("🗺️ Map of Recent Sightings Colored by Light-Pollution")
     df4 = df_sample.dropna(subset=["light_pollution"])
     if df4.empty:
         st.info("No light-pollution values on recent sightings.")
@@ -763,8 +793,10 @@ if tab_index == 2:
         cmap.add_to(m4)
 
         st_folium(m4, width=900, height=500)
+    st.markdown("Displays recent UFO reports on a world map, colored by **measured radiance levels**. Useful for spotting patterns in how ambient light might influence report frequency or type."
+    )
     
-    st.subheader("Cumulative Distribution of Light-Pollution")
+    st.subheader("📈 Cumulative Distribution of Light-Pollution")
 
     cdf_plot = figure(
         height=300, sizing_mode="stretch_width",
@@ -779,6 +811,8 @@ if tab_index == 2:
 
     cdf_plot.legend.location = "bottom_right"
     st.bokeh_chart(cdf_plot)
+
+    st.markdown("Plots **CDFs** of light pollution values for each category. This helps assess what proportion of sightings occur under low-light vs. high-light conditions and whether Unexplained sightings differ meaningfully.")
 
     st.markdown("## Summary of Insights & Visualizations")
     st.markdown("""
@@ -806,13 +840,14 @@ if tab_index == 3:
         "Unexplained":   df.loc[df["unknown_flag"],  "light_pollution"],
     }
 
-    st.subheader("Top Countries with Most UFO Sightings")
+    st.subheader("🌍 Top Countries with Most UFO Sightings")
     df_countries = df.dropna(subset=['Country'])
     top_countries = df_countries['Country'].value_counts().head(10)
     st.bar_chart(top_countries)
 
+    st.markdown("Displays the **top 10 countries** with the highest number of sightings. Highlights regions with consistent or high reporting activity.")
 
-    st.markdown("### Summary Statistics by Sighting Type")
+    st.markdown("### 📊 Summary Statistics by Sighting Type")
 
     stats_df = pd.DataFrame({
         label: {
@@ -828,7 +863,15 @@ if tab_index == 3:
 
     st.dataframe(stats_df.style.format("{:.2f}"))
 
-    st.subheader("Distribution of UFO Shapes (Top 7)")
+    st.markdown("""
+    Provides **descriptive statistics** (count, mean, median, etc.) of **light pollution values** for:
+    - Meteor-likely
+    - Flight-likely
+    - Unexplained sightings  
+    Helpful to compare environmental conditions surrounding each sighting type.
+    """)
+
+    st.subheader("🛸 Distribution of UFO Shapes (Top 7)")
 
     df_shapes = df.dropna(subset=['shape'])
     shape_counts = df_shapes['shape'].value_counts().head(7)
@@ -840,21 +883,6 @@ if tab_index == 3:
     ax.set_title("Top 7 UFO Shapes by Frequency")
     st.pyplot(fig)
 
-    st.markdown("## Summary of Insights & Visualizations")
-    st.markdown("""
-    ### 🌍 Top Countries with UFO Sightings
-    Displays the **top 10 countries** with the highest number of sightings. Highlights regions with consistent or high reporting activity.
-
-    ### 📊 Summary Statistics by Sighting Type
-    Provides **descriptive statistics** (count, mean, median, etc.) of **light pollution values** for:
-    - Meteor-likely
-    - Flight-likely
-    - Unexplained sightings  
-    Helpful to compare environmental conditions surrounding each sighting type.
-
-    ### 🛸 Most Common UFO Shapes
-    Bar chart of the **top 7 most reported UFO shapes** based on user descriptions. Reveals potential consistency (or variety) in perceived UFO appearances.
-    """)
-
+    st.markdown("Bar chart of the **top 7 most reported UFO shapes** based on user descriptions. Reveals potential consistency (or variety) in perceived UFO appearances.")
 
     
