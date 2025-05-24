@@ -8,3 +8,5 @@ scipy
 pycountry
 matplotlib
 branca
+altair
+seaborn
