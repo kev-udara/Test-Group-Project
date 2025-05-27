@@ -52,7 +52,7 @@ def download_and_merge(urls):
     return pd.concat(dfs, ignore_index=True)
 
 def normalize_and_clean(df):
-    # pick & rename exactly one of each: date, lat, lon, brightness, __year→year
+    # picking & renaming exactly one of each: date, lat, lon, brightness, __year→year
     mapping = {}
     for c in df.columns:
         lc = c.lower()
@@ -106,7 +106,7 @@ def enrich_ufo_with_light(globe_df):
             if not loc or not dtstr:
                 continue
 
-            # parse + drop timezone
+            # parsing + drop timezone
             try:
                 ufo_dt = datetime.fromisoformat(dtstr).replace(tzinfo=None)
             except:
@@ -119,7 +119,7 @@ def enrich_ufo_with_light(globe_df):
             if sub.empty:
                 continue
 
-            # compute distance, filter & pick closest
+            # computing distance, filter & pick closest
             sub["dist"] = sub.apply(
                 lambda r: haversine(loc["lat"], loc["lon"], r.lat, r.lon),
                 axis=1

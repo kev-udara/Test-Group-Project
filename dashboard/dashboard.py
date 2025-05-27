@@ -51,7 +51,7 @@ def get_country_name(code: str) -> str:
 def get_subdivision_name(state_code: str, country_code: str) -> str:
     # Silently ignore invalid or missing inputs
     if not state_code or not country_code:
-        return None  # or return "" if that's more appropriate in your context
+        return None  
 
     iso_code = f"{country_code.upper()}-{state_code.upper()}"
     subdivision = pycountry.subdivisions.get(code=iso_code)
@@ -59,13 +59,13 @@ def get_subdivision_name(state_code: str, country_code: str) -> str:
     if subdivision:
         return subdivision.name
 
-    return None  # fallback if the code isn't valid
+    return None  
     
 
 @st.cache_data(show_spinner=False)
 def read_index(_cache_buster: float) -> pd.DataFrame:
     """
-    Pull the index into a DataFrame and normalise nested fields.
+    Pulling the index into a DataFrame and normalise nested fields.
     _cache_buster is a dummy parameter – when its value changes
     Streamlit invalidates the cache so we can force a reload.
     """
@@ -122,7 +122,7 @@ def read_index(_cache_buster: float) -> pd.DataFrame:
     return df
 
 def prune_for_bokeh(tdf: pd.DataFrame, numeric_cols: list[str]) -> pd.DataFrame:
-    """Remove rows containing NaN/∞ in numeric cols and cast to plain float."""
+    """Removing rows containing NaN/∞ in numeric cols and cast to plain float."""
     tdf = (tdf.replace([np.inf, -np.inf], np.nan)
               .dropna(subset=numeric_cols)
               .copy())
@@ -131,7 +131,7 @@ def prune_for_bokeh(tdf: pd.DataFrame, numeric_cols: list[str]) -> pd.DataFrame:
     return tdf
 
 def add_flags(df: pd.DataFrame) -> pd.DataFrame:
-    """Add meteor / flight / unknown boolean columns."""
+    """Adding meteor / flight / unknown boolean columns."""
     df = df.copy()
 
     # meteor-likely: at least one shower code within ±2 days of peak

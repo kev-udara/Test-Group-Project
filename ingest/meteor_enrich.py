@@ -11,7 +11,7 @@ UFO_INDEX     = "ufo_sightings"
 SHOWERS_FILE  = "data/meteor_showers.csv"
 
 def load_showers():
-    # read the pipe‐delimited table, skip comments
+    # reading the pipe‐delimited table, skip comments
     df = pd.read_csv(
         SHOWERS_FILE,
         sep="|",
@@ -25,7 +25,7 @@ def load_showers():
         usecols=["code","name","begin_sol","max_sol","end_sol"]
     )
 
-    # drop any showers where we can't determine a full window
+    # dropping any showers where we can't determine a full window
     df = df.dropna(subset=["begin_sol","max_sol","end_sol"])
 
     # approximate: solar‐longitude (°) → day‐of‐year (DOY)
@@ -43,7 +43,7 @@ def main():
     showers = load_showers()
     es      = Elasticsearch([ES_HOST], verify_certs=False)
 
-    # scroll through all UFO docs
+    # scrolling through all UFO docs
     scroll = es.search(
       index=UFO_INDEX, scroll="2m", size=1000,
       _source=["Occurred_utc"]
@@ -54,11 +54,11 @@ def main():
 
     while hits:
         for d in hits:
-            # parse date, extract day‐of‐year
+            # parsing date, extract day‐of‐year
             dt  = datetime.fromisoformat(d["_source"]["Occurred_utc"][:10])
             doy = dt.timetuple().tm_yday
 
-            # find any showers active on that day
+            # finding any showers active on that day
             active = showers[
               (showers.begin_doy <= doy) &
               (showers.end_doy   >= doy)

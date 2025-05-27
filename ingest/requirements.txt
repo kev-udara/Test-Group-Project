@@ -6,7 +6,7 @@ requests
 kaggle
 icalendar
 rasterio
-streamlit       # for local testing of enrichment UIs if desired
+streamlit       
 pystac-client
 Pillow
 beautifulsoup4 

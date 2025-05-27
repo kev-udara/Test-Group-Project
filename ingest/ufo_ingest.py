@@ -11,20 +11,20 @@ DATA_DIR = "data"
 ES_HOST  = os.getenv("ES_HOST", "http://elasticsearch:9200")
 INDEX    = "ufo_sightings"
 
-# 1️⃣ Download Kaggle CSV if missing
+# 1️⃣ Downloading Kaggle CSV if missing
 csv_path = os.path.join(DATA_DIR, "ufo_sightings.csv")
 if not os.path.exists(csv_path):
     api = KaggleApi(); api.authenticate()
     api.dataset_download_files("andrewmvd/ufo-sightings", path=DATA_DIR, unzip=True)
 
-# 2️⃣ Load NUFORC JSON + Kaggle CSV (don’t auto-parse dates)
+# 2️⃣ Loading NUFORC JSON + Kaggle CSV 
 df1 = pd.DataFrame(json.load(open(os.path.join(DATA_DIR,"nuforc.json"))))
 df2 = pd.read_csv(csv_path, parse_dates=False, engine="python", on_bad_lines="skip")
 df2.rename(columns={"datetime":"Occurred"}, inplace=True)
 df = pd.concat([df1, df2], ignore_index=True, sort=False)
 print(f"🔗 Combined: {len(df)} rows")
 
-# 3️⃣ Clean the Occurred strings
+# 3️⃣ Cleaning the Occurred strings
 df["Occurred"] = df["Occurred"].astype(str).str.replace(r"\s*Local$","",regex=True)
 
 # 4️⃣ Two‐pass date parsing → Occurred_utc
@@ -70,7 +70,7 @@ _COORD_RE = re.compile(r"\d+\s*degrees?", flags=re.I)   #  “22Degrees01 …”
 
 def _normalise_city(raw: str | None) -> str | None:
     """
-    Fix messy ‘city’ strings coming from NUFORC / Kaggle.
+    Fixing messy ‘city’ strings coming from NUFORC / Kaggle.
 
     • HTML-decodes entities (&Ccedil; → Ç, &#44; → , …)  
     • Discards placeholders like “??”, “Unknown”, “((Unspecified))”, etc.  
@@ -88,7 +88,7 @@ def _normalise_city(raw: str | None) -> str | None:
     if _PLACEHOLDER_RE.search(txt) or _COORD_RE.search(txt):
         return None
 
-    # kill double-parenthesised placeholders and bracket qualifiers
+    # killing double-parenthesised placeholders and bracket qualifiers
     txt = re.sub(r"\(\(.*?\)\)", " ", txt)   # ((…))
     txt = re.sub(r"\s*\(.*?\)",   " ", txt)  # (…)
     txt = re.sub(r"\s{2,}", " ", txt).strip()
@@ -96,7 +96,7 @@ def _normalise_city(raw: str | None) -> str | None:
     return txt.lower() or None
 
 
-# Build a single “Location” column first
+# Building a single “Location” column first
 df["Location"] = (
     df.get("city",    pd.Series(dtype=str)).fillna("") + ", " +
     df.get("state",   pd.Series(dtype=str)).fillna("") + ", " +
@@ -113,11 +113,11 @@ df[["City", "State", "Country"]] = df["Location"].apply(split_loc)
 # 👉 final cleanup of the City field
 df["City"] = (
     df["City"]
-      .apply(_normalise_city)          # clean
-      .replace({None: pd.NA})          # make pandas treat it as missing
+      .apply(_normalise_city)          # cleaning
+      .replace({None: pd.NA})          # making pandas treat it as missing
 )
 
-# 6️⃣ Pull lat/lon from Kaggle CSV
+# 6️⃣ Pulling lat/lon from Kaggle CSV
 df["lat"] = pd.to_numeric(df.get("latitude"),   errors="coerce") \
              .fillna(pd.to_numeric(df.get("lat_kaggle"), errors="coerce"))
 df["lon"] = pd.to_numeric(df.get("longitude"),  errors="coerce") \
@@ -125,19 +125,19 @@ df["lon"] = pd.to_numeric(df.get("longitude"),  errors="coerce") \
 n_loc_bad = df[["lat","lon"]].isna().any(axis=1).sum()
 print(f"📍 {n_loc_bad} bad coords → dropping those")
 
-# 7️⃣ Filter to only good rows
+# 7️⃣ Filtering to only good rows
 df = df[df["Occurred_utc"].notna() & df["lat"].notna() & df["lon"].notna()]
 print(f"✅ {len(df)} rows remain after filtering")
 
 # ─── FIXES ───────────────────────────────────────────────────────────────────
 
-# 8️⃣ Coalesce shape from JSON (`Shape`) and CSV (`shape`)
+# 8️⃣ Coalescing shape from JSON (`Shape`) and CSV (`shape`)
 df["shape"] = df.get("shape").fillna(df.get("Shape"))
 
-# 9️⃣ Build a unified 'duration' text field from CSV’s two columns
+# 9️⃣ Building a unified 'duration' text field from CSV’s two columns
 df["duration"] = (
     df.get("duration (hours/min)", pd.Series(dtype=str))
-      .fillna("")                      # use hours/min if present
+      .fillna("")                      # using hours/min if present
       .replace("", pd.NA)
 )
 # fallback to seconds if hours/min is missing
@@ -147,13 +147,13 @@ if sec is not None:
         sec.astype(str).str.strip() + " sec"
     )
 
-# 🔟 Coalesce comments: CSV uses 'comments', JSON uses 'Text'
+# 🔟 Coalescing comments: CSV uses 'comments', JSON uses 'Text'
 df["comments"] = (
     df.get("comments")
       .fillna(df.get("Text"))
 )
 
-# ─── 1️⃣1️⃣ Create ES index with proper mapping ───────────────────────────────
+# ─── 1️⃣1️⃣ Creating ES index with proper mapping ───────────────────────────────
 es = Elasticsearch([ES_HOST], verify_certs=False)
 es.indices.delete(index=INDEX, ignore=[400,404])
 es.indices.create(index=INDEX, body={

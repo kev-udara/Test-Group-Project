@@ -155,7 +155,7 @@ def main() -> None:
 
             region = map_country_to_region(src.get("Country"))
             if not region:
-                # still unmapped – you can log src["Country"] here to debug
+                # still unmapped – can log src["Country"] here to debug
                 continue
 
             key = (region, dt.year, dt.month)

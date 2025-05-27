@@ -20,7 +20,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Copy your ingestion scripts in
+# 4. Copy ingestion scripts in
 COPY *.py .
 
 CMD ["python","ufo_ingest.py"]
